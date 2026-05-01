@@ -21,7 +21,7 @@ Le mécanisme recommandé est l'Edge Function `cron-close-sessions`.
 **Ce cron est optionnel** : le backend fonctionne parfaitement sans, mais les tâches suivantes devront être faites manuellement :
 
 - Fermeture des sessions expirées (les professeurs peuvent fermer manuellement via `close-session`)
-- Publication des annonces planifiées (publier manuellement via `publish-seances`)
+- Publication des annonces planifiées (publier manuellement l’annonce via la table `annonces` ou exécuter `publish_scheduled_annonces()` avec des privilèges admin)
 - Envoi des rappels d'examen (pas de rappel automatique)
 
 ### Configuration (peut être faite plus tard)

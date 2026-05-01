@@ -224,7 +224,7 @@ Dans `005_automatic_notifications.sql` :
 
 Les tâches périodiques (ex : `close_expired_sessions()`, `publish_scheduled_annonces()`, `send_exam_reminders()`) sont exécutées via l’Edge Function `cron-close-sessions`.
 
-- La planification est déclarée dans `supabase/config.toml` (exécution toutes les minutes).
+- La planification est configurée via **Supabase Cron** (Dashboard → Integrations → Cron), typiquement toutes les minutes.
 - `pg_cron` n’est pas utilisé/recommandé pour ce projet.
 
 ### 6.7 Validation atomique des justificatifs
@@ -263,3 +263,11 @@ Ordre principal :
 - `008_add_fcm_token.sql` : ajout de `users.fcm_token`
 - `009_fcm_trigger.sql` : trigger `pg_net` pour pousser via `send-push`
 - `010_validate_justification.sql` : validation atomique justificatif + présence
+
+Migrations de correctifs :
+
+- `011_fix_functions_url_fallback.sql` : fallback URL Edge Functions pour les appels `pg_net` (évite la dépendance à `app.settings.functions_url`)
+- `012_fix_user_creation_trigger.sql` : robustesse du trigger `handle_new_user` (métadonnées nulles)
+- `013_fix_handle_new_user_schema.sql` : qualification explicite `public.users` pour éviter collision avec `auth.users`
+- `014_fix_handle_new_user_role_default.sql` : rôle par défaut robuste (évite insertion `role = NULL`)
+- `015_fix_handle_new_user_rls_owner.sql` : exécution fiable (SECURITY DEFINER, search_path, owner) pour bypass RLS lors de la création du profil

@@ -1,4 +1,4 @@
-cla# Documentation Edge Functions (Supabase)
+# Documentation Edge Functions (Supabase)
 
 Ce document décrit les **Edge Functions** du backend Syndory : objectif, logique, paramètres, réponses et exemples d’appel.
 
@@ -99,7 +99,7 @@ Permet à un **professeur** d’ouvrir une session de présence pour une séance
 - Vérifie que le professeur est dans le rayon de la salle (`is_within_salle_radius`).
 - Vérifie qu’aucune session du professeur n’est déjà ouverte.
 - Crée une ligne dans `sessions`.
-- Notifie la classe via `notify_class_active`.
+- Notifie la classe via la fonction SQL `notify_class_active`.
 
 ### Réponses
 
