@@ -151,6 +151,262 @@ Conséquence pratique :
 
 Les règles exactes sont dans `supabase/migrations/002_rls_policies.sql` et résumées dans `docs/database.md`.
 
+## Matrice d’accès RLS (source de vérité : `002_rls_policies.sql`)
+
+Cette section répond exactement à :
+
+- qui peut faire `SELECT / INSERT / UPDATE / DELETE` par table
+- et donc quelles opérations peuvent _techniquement_ passer par PostgREST
+
+Rappel : toutes les policies exigent implicitement `is_active_user()` (utilisateur authentifié + actif), sauf mention contraire.
+
+### Tables référentielles
+
+#### `filieres`
+
+- **SELECT**
+  - Tous les utilisateurs authentifiés actifs
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `classes`
+
+- **SELECT**
+  - `admin`
+  - `professor` si affecté à la classe via `professeur_matieres`
+  - `student` / `class_representative` si classe active = `get_student_class_id()`
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `matieres`
+
+- **SELECT**
+  - Tous les utilisateurs authentifiés actifs
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `salles`
+
+- **SELECT**
+  - Tous les utilisateurs authentifiés actifs
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `semestres`
+
+- **SELECT**
+  - Tous les utilisateurs authentifiés actifs
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `vacances_examens`
+
+- **SELECT**
+  - Tous les utilisateurs authentifiés actifs
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `parametres`
+
+- **SELECT**
+  - Tous les utilisateurs authentifiés actifs
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `professeur_matieres`
+
+- **SELECT**
+  - `admin`
+  - `professor` : ses affectations (`professor_id = auth.uid()`)
+  - `student` / `class_representative` : si inscrit dans la classe associée (`student_classes.is_active=true`)
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `student_classes`
+
+- **SELECT**
+  - `admin`
+  - `student` / `class_representative` : ses propres lignes (`student_id = auth.uid()`)
+  - `professor` : si enseigne la classe (`professor_teaches_class(class_id)`)
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+### Tables “emploi du temps”
+
+#### `seances`
+
+- **SELECT**
+  - `admin`
+  - `professor` : ses séances (`professor_id = auth.uid()`)
+  - `student` / `class_representative` : séances de sa classe active (`class_id = get_student_class_id()`)
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+### Tables “cahier de texte / progression”
+
+#### `programmes`
+
+- **SELECT**
+  - `admin`
+  - `professor` si enseigne la classe (`professor_teaches_class(class_id)`)
+  - `student` / `class_representative` si `class_id = get_student_class_id()`
+- **INSERT**
+  - `admin` ou `professor` qui enseigne la classe
+- **UPDATE**
+  - `admin` ou `professor` qui enseigne la classe
+- **DELETE**
+  - `admin` uniquement
+
+#### `progressions`
+
+- **SELECT**
+  - `admin`
+  - `professor` (si `progressions.seance_id` appartient au prof)
+  - `student` / `class_representative` (si la séance est dans sa classe)
+- **INSERT**
+  - `professor` : si `updated_by = auth.uid()`, `updated_by_role='professor'`, et la séance appartient au prof
+  - `class_representative` : si `updated_by = auth.uid()`, `updated_by_role='class_representative'`, et la séance est dans sa classe
+- **UPDATE**
+  - `professor` : si la séance appartient au prof **et** `is_validated=false`
+  - `class_representative` : si la séance est dans sa classe **et** `is_validated=false`
+  - `admin` : autorisé (tant que `is_validated=false` selon la policy)
+- **DELETE**
+  - Personne (policy `USING (false)`)
+
+### Tables “présence”
+
+#### `sessions`
+
+- **SELECT**
+  - `admin`
+  - `professor` : ses sessions (`professor_id = auth.uid()`)
+  - `student` / `class_representative` : si inscrit dans la classe de la séance (via join `seances`/`student_classes.is_active=true`)
+- **INSERT**
+  - `admin`
+  - `professor` si `professor_id = auth.uid()`
+- **UPDATE**
+  - `admin`
+  - `professor` si `professor_id = auth.uid()`
+- **DELETE**
+  - `admin` uniquement
+
+#### `presences`
+
+- **SELECT**
+  - `admin`
+  - `student` / `class_representative` : ses présences (`student_id = auth.uid()`)
+  - `professor` : présences des séances qu’il enseigne (via join `sessions` → `seances`)
+  - `class_representative` : présences de sa classe (via join `sessions` → `seances`)
+- **INSERT**
+  - `admin`
+  - `professor` : uniquement pour ses séances (via join)
+- **UPDATE**
+  - `admin`
+  - `professor` : uniquement pour ses séances
+  - `student` : uniquement pour marquer _sa_ présence avec contraintes strictes :
+    - `marked_by = 'student'`
+    - `status = 'present'`
+    - session `ouverte`
+    - `NOW()` dans la fenêtre `opened_at + marking_window_duration`
+- **DELETE**
+  - Non défini → refusé par défaut
+
+#### `justificatifs`
+
+- **SELECT**
+  - `admin`
+  - `student` : ses justificatifs (`student_id = auth.uid()`)
+  - `professor` : justificatifs des présences liées à ses séances
+- **INSERT**
+  - `student` uniquement (avec `student_id = auth.uid()`)
+- **UPDATE**
+  - `professor` : uniquement pour justificatifs de ses séances
+- **DELETE**
+  - Non défini → refusé par défaut
+
+### Tables “ressources / communication”
+
+#### `ressources`
+
+- **SELECT**
+  - `admin`
+  - `student` / `class_representative` : ressources de sa classe active (`class_id = get_student_class_id()`)
+  - `professor` : si enseigne la classe (`professor_teaches_class(class_id)`)
+- **INSERT**
+  - `admin`
+  - tout rôle si `uploaded_by = auth.uid()` (donc prof/responsable peuvent insérer leurs propres ressources)
+- **UPDATE/DELETE**
+  - `admin` ou propriétaire (`uploaded_by = auth.uid()`)
+
+#### `annonces`
+
+- **SELECT**
+  - `admin`
+  - sinon si l’annonce est accessible par ciblage :
+    - `is_published = true` (publique)
+    - ou `target_type = 'all'`
+    - ou `target_type='students'` et `is_student()`
+    - ou `target_type='professors'` et `is_professor()`
+    - ou `target_type='classe'` et `target_id = get_student_class_id()`
+    - ou `target_type='filiere'` et filière de l’étudiant
+- **INSERT/UPDATE/DELETE**
+  - `admin` uniquement
+
+#### `notifications`
+
+- **SELECT**
+  - uniquement le propriétaire (`user_id = auth.uid()`)
+- **INSERT**
+  - `admin` uniquement (par RLS)
+- **UPDATE/DELETE**
+  - uniquement le propriétaire (`user_id = auth.uid()`)
+
+#### `logs_activite`
+
+- **SELECT / INSERT / UPDATE / DELETE**
+  - `admin` uniquement
+
+### Table “profil applicatif”
+
+#### `users`
+
+- **SELECT**
+  - Tous les utilisateurs authentifiés actifs
+- **INSERT/DELETE**
+  - `admin` uniquement
+- **UPDATE**
+  - `admin` ou l’utilisateur lui-même (`id = auth.uid()`), avec contrainte :
+    - un utilisateur non-admin ne peut pas changer son `role`
+
+## Opérations “obligatoires via Edge Functions / RPC”
+
+Même si certaines écritures sont _possibles_ via PostgREST/RLS, ces opérations doivent passer par les Edge Functions/RPC pour respecter la logique métier implémentée côté serveur.
+
+- **Ouvrir une session (prof)** : utiliser `open-session`
+  - Pourquoi : vérifications jour/heure (timezone `Africa/Porto-Novo`), assignation, GPS (rayon salle), unicité “une session ouverte”.
+- **Marquer une présence (étudiant)** : utiliser `mark-presence`
+  - Pourquoi : vérification GPS côté serveur + règles de fenêtre + logique centralisée `mark_presence(...)`.
+- **Clôturer une session (prof)** : utiliser `close-session`
+  - Pourquoi : marque automatiquement les absents via `close_session(...)`.
+- **Détection conflits EDT (admin)** : utiliser `check-conflicts`
+  - Pourquoi : logique centralisée `check_schedule_conflicts(...)`.
+- **Publier des séances (admin)** : utiliser `publish-seances`
+  - Pourquoi : publication en masse + cohérence côté admin (et déclencheurs de notifications sur changement de statut).
+- **Mettre à jour progression (prof/responsable)** : utiliser `update-progression`
+  - Pourquoi : contrôle de rôle et d’appartenance + gestion insert/update.
+- **Valider progression (prof)** : utiliser `validate-progression`
+  - Pourquoi : verrouillage final (met `is_validated=true`).
+- **Soumettre un justificatif (étudiant)** : utiliser `submit-justification`
+  - Pourquoi : vérifie règles métier (présence = absent, unicité selon statut) + notification professeur.
+- **Traiter un justificatif (prof)** : utiliser `review-justification`
+  - Pourquoi : transaction atomique via `validate_justification(...)` + notifications.
+- **Envoyer des notifications ciblées (admin/prof/responsable)** : utiliser `send-notification`
+  - Pourquoi : insertion via client admin + résolution des cibles.
+- **Rapports (admin/prof)** : utiliser `generate-report`
+  - Pourquoi : génération côté serveur (JSON/CSV).
+- **Job périodique** : `cron-close-sessions` (appelé par Supabase Cron)
+  - Pourquoi : exécute `close_expired_sessions`, `publish_scheduled_annonces`, `send_exam_reminders`.
+
 ## Guide d’implémentation par module (CRUD + fonctions)
 
 Cette section est organisée pour correspondre aux écrans UI/UX.
@@ -205,7 +461,7 @@ Téléchargement :
 - soit via URL stockée en DB (si exposée)
 - soit via génération de signed URL côté client (selon policies)
 
-Référence Storage : section “Configuration Storage” plus bas + `docs/database.md`.
+Référence Storage : section “Storage (buckets attendus)” plus bas + `docs/database.md`.
 
 #### A5) Assiduité (ETU-09)
 
