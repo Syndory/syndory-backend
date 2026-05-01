@@ -93,8 +93,9 @@ serve(async (req: Request) => {
 
     const { data: existing } = await supabase
       .from('justificatifs')
-      .select('id')
+      .select('id, status')
       .eq('presence_id', presence_id)
+      .in('status', ['en_attente', 'validé'])
       .maybeSingle();
 
     if (existing?.id) {

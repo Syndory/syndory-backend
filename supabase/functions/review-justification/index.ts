@@ -82,61 +82,19 @@ serve(async (req: Request) => {
       );
     }
 
-    const { data: justificatif, error: justificatifError } = await supabase
-      .from('justificatifs')
-      .select(
-        'id, status, presence_id, student_id, presence:presence_id (session:session_id (seance:seance_id (id, professor_id)))',
-      )
-      .eq('id', justificatif_id)
-      .single();
+    const { data: result, error: rpcError } = await supabase.rpc(
+      'validate_justification',
+      {
+        p_justificatif_id: justificatif_id,
+        p_professor_id: user.id,
+        p_decision: decision,
+        p_rejection_reason: decision === 'rejeté' ? rejection_reason : null,
+      },
+    );
 
-    if (justificatifError || !justificatif) {
+    if (rpcError) {
       return new Response(
-        JSON.stringify({ error: 'Justificatif introuvable' }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
-
-    const seanceProfessorId =
-      justificatif.presence?.session?.seance?.professor_id;
-    if (!seanceProfessorId || seanceProfessorId !== user.id) {
-      return new Response(
-        JSON.stringify({ error: 'Justificatif non autorise' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
-
-    if (justificatif.status !== 'en_attente') {
-      return new Response(
-        JSON.stringify({ error: 'Justificatif deja traite' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-    }
-
-    const { data: updated, error: updateError } = await supabase
-      .from('justificatifs')
-      .update({
-        status: decision,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
-        rejection_reason: decision === 'rejeté' ? rejection_reason : null,
-      })
-      .eq('id', justificatif_id)
-      .select('id, status')
-      .single();
-
-    if (updateError) {
-      return new Response(
-        JSON.stringify({ error: 'Erreur lors de la mise a jour' }),
+        JSON.stringify({ error: 'Erreur lors de la validation' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -144,27 +102,24 @@ serve(async (req: Request) => {
       );
     }
 
-    if (decision === 'validé') {
-      const { error: presenceError } = await supabase
-        .from('presences')
-        .update({ status: 'justified' })
-        .eq('id', justificatif.presence_id);
+    const payload = result as {
+      success: boolean;
+      error?: string;
+      status?: string;
+    } | null;
 
-      if (presenceError) {
-        return new Response(
-          JSON.stringify({
-            error: 'Erreur lors de la mise a jour de la presence',
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
-      }
+    if (!payload?.success) {
+      return new Response(
+        JSON.stringify({ error: payload?.error || 'Validation impossible' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     return new Response(
-      JSON.stringify({ success: true, justificatif: updated }),
+      JSON.stringify({ success: true, status: payload.status }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
