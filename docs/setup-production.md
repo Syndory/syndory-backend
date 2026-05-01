@@ -27,3 +27,8 @@ http://localhost:54321/functions/v1
 Set these secrets in your Supabase project:
 
 - `FCM_SERVER_KEY` (legacy FCM server key)
+
+## Scheduler
+
+The cron job is configured in [supabase/config.toml](../supabase/config.toml) under `functions.cron-close-sessions`.
+Ensure the `cron-close-sessions` function is deployed in production so Supabase can execute it every minute.

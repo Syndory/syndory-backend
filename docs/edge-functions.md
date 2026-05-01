@@ -12,10 +12,15 @@ Base URL (Supabase) :
 
 ### 1.2 Authentification
 
-Toutes les fonctions nécessitent un utilisateur authentifié.
+La majorité des fonctions nécessitent un utilisateur authentifié.
 
 - Envoyer l’en-tête : `Authorization: Bearer <access_token>`
 - Envoyer : `Content-Type: application/json`
+
+Exceptions internes (sans JWT) :
+
+- `send-push` (appelé par `pg_net`)
+- `cron-close-sessions` (scheduler Supabase)
 
 ### 1.3 CORS
 
@@ -31,12 +36,15 @@ Toutes les fonctions répondent au préflight `OPTIONS` et ajoutent des headers 
 ## 2) `mark-presence`
 
 ### Objectif
+
 Permet à un **étudiant** de marquer sa présence à une session ouverte, avec vérification GPS.
 
 ### Endpoint
+
 `POST /functions/v1/mark-presence`
 
 ### Body
+
 ```json
 {
   "session_id": "uuid",
@@ -46,12 +54,14 @@ Permet à un **étudiant** de marquer sa présence à une session ouverte, avec 
 ```
 
 ### Logique (résumé)
+
 - Vérifie que l’utilisateur est authentifié.
 - Valide les coordonnées GPS.
 - Appelle la fonction SQL `mark_presence(p_session_id, p_student_id, p_gps_lat, p_gps_long)`.
 - Retourne succès ou message d’erreur (fenêtre expirée, trop loin, session fermée…).
 
 ### Réponses
+
 - `200` : présence marquée
 - `400` : paramètres invalides / règle métier non respectée
 - `401` : non authentifié
@@ -62,12 +72,15 @@ Permet à un **étudiant** de marquer sa présence à une session ouverte, avec 
 ## 3) `open-session`
 
 ### Objectif
+
 Permet à un **professeur** d’ouvrir une session de présence pour une séance, avec vérification GPS.
 
 ### Endpoint
+
 `POST /functions/v1/open-session`
 
 ### Body
+
 ```json
 {
   "seance_id": "uuid",
@@ -78,6 +91,7 @@ Permet à un **professeur** d’ouvrir une session de présence pour une séance
 ```
 
 ### Logique (résumé)
+
 - Vérifie l’auth.
 - Vérifie que la séance appartient au professeur (via `seances_view`).
 - Vérifie que la séance est **le jour même**.
@@ -85,9 +99,10 @@ Permet à un **professeur** d’ouvrir une session de présence pour une séance
 - Vérifie que le professeur est dans le rayon de la salle (`is_within_salle_radius`).
 - Vérifie qu’aucune session du professeur n’est déjà ouverte.
 - Crée une ligne dans `sessions`.
-- Notifie la classe via `notify_class`.
+- Notifie la classe via `notify_class_active`.
 
 ### Réponses
+
 - `200` : session créée
 - `400` : hors fenêtre / déjà une session ouverte / GPS invalide
 - `403` : séance non autorisée
@@ -97,12 +112,15 @@ Permet à un **professeur** d’ouvrir une session de présence pour une séance
 ## 4) `close-session`
 
 ### Objectif
+
 Permet à un professeur de fermer une session de présence.
 
 ### Endpoint
+
 `POST /functions/v1/close-session`
 
 ### Body
+
 ```json
 {
   "session_id": "uuid"
@@ -110,6 +128,7 @@ Permet à un professeur de fermer une session de présence.
 ```
 
 ### Logique (résumé)
+
 - Vérifie l’auth.
 - Appelle `close_session(p_session_id, p_professor_id)`.
 - La fonction SQL clôture la session et marque les absents.
@@ -119,15 +138,19 @@ Permet à un professeur de fermer une session de présence.
 ## 5) `check-conflicts`
 
 ### Objectif
+
 Permet de vérifier les conflits d’emploi du temps avant création/modification d’une séance.
 
 ### Accès
+
 Réservé aux **admins**.
 
 ### Endpoint
+
 `POST /functions/v1/check-conflicts`
 
 ### Body
+
 ```json
 {
   "seance_id": "uuid (optionnel)",
@@ -142,6 +165,7 @@ Réservé aux **admins**.
 ```
 
 ### Logique (résumé)
+
 - Vérifie l’auth.
 - Vérifie que l’utilisateur courant est admin.
 - Appelle `check_schedule_conflicts(...)`.
@@ -152,12 +176,15 @@ Réservé aux **admins**.
 ## 6) `validate-progression`
 
 ### Objectif
+
 Permet à un professeur de valider définitivement une progression.
 
 ### Endpoint
+
 `POST /functions/v1/validate-progression`
 
 ### Body
+
 ```json
 {
   "progression_id": "uuid"
@@ -165,6 +192,7 @@ Permet à un professeur de valider définitivement une progression.
 ```
 
 ### Logique (résumé)
+
 - Vérifie l’auth.
 - Charge la progression + sa séance.
 - Vérifie que la séance appartient au professeur.
@@ -173,20 +201,150 @@ Permet à un professeur de valider définitivement une progression.
 
 ---
 
-## 7) `send-notification`
+## 7) `update-progression`
 
 ### Objectif
+
+Permet à un professeur ou au responsable de classe de mettre à jour les chapitres couverts pour une séance.
+
+### Endpoint
+
+`POST /functions/v1/update-progression`
+
+### Body
+
+```json
+{
+  "seance_id": "uuid",
+  "chapters_covered": ["ch-1", "ch-2"]
+}
+```
+
+### Logique (résumé)
+
+- Vérifie l’auth et le rôle (`professor` ou `class_representative`).
+- Vérifie l’appartenance à la séance (professeur ou classe).
+- Refuse si `is_validated = true`.
+- Insère ou met à jour `progressions`.
+
+---
+
+## 8) `publish-seances`
+
+### Objectif
+
+Publier des séances en brouillon (déclenche les triggers de notification).
+
+### Accès
+
+Réservé aux **admins**.
+
+### Endpoint
+
+`POST /functions/v1/publish-seances`
+
+### Body
+
+```json
+{
+  "seance_ids": ["uuid-1", "uuid-2"]
+}
+```
+
+ou
+
+```json
+{
+  "publish_all": true,
+  "class_id": "uuid"
+}
+```
+
+### Logique (résumé)
+
+- Vérifie l’auth + admin.
+- Vérifie que les séances existent et sont en statut `brouillon`.
+- Met à jour `status = 'publié'`.
+
+---
+
+## 9) `submit-justification`
+
+### Objectif
+
+Permet à un étudiant de soumettre un justificatif d’absence.
+
+### Endpoint
+
+`POST /functions/v1/submit-justification`
+
+### Body
+
+```json
+{
+  "presence_id": "uuid",
+  "file_url": "https://...",
+  "reason": "texte optionnel"
+}
+```
+
+### Logique (résumé)
+
+- Vérifie l’auth + rôle étudiant.
+- Vérifie que la présence appartient à l’étudiant et est `absent`.
+- Refuse si un justificatif `en_attente` ou `validé` existe déjà.
+- Crée `justificatifs`.
+- Notifie le professeur via `notify_professor_for_seance`.
+
+---
+
+## 10) `review-justification`
+
+### Objectif
+
+Permet au professeur de valider ou rejeter un justificatif.
+
+### Endpoint
+
+`POST /functions/v1/review-justification`
+
+### Body
+
+```json
+{
+  "justificatif_id": "uuid",
+  "decision": "validé",
+  "rejection_reason": "texte optionnel"
+}
+```
+
+### Logique (résumé)
+
+- Vérifie l’auth + rôle professeur.
+- Appelle la fonction SQL `validate_justification(...)` (transaction atomique).
+- La notification à l’étudiant est déclenchée par trigger SQL.
+
+---
+
+## 11) `send-notification`
+
+### Objectif
+
 Créer des notifications (table `notifications`) et cibler :
+
 - des `user_ids` explicites, ou
 - une cible logique (`all`, `filiere`, `classe`, `professors`, `students`).
 
 ### Accès
+
 `admin`, `professor`, `class_representative`.
 
 ### Endpoint
+
 `POST /functions/v1/send-notification`
 
 ### Body (exemple)
+
 ```json
 {
   "user_ids": [],
@@ -195,11 +353,12 @@ Créer des notifications (table `notifications`) et cibler :
   "type": "announcement",
   "title": "Information",
   "message": "Votre message",
-  "data": {"key": "value"}
+  "data": { "key": "value" }
 }
 ```
 
 ### Logique (résumé)
+
 - Vérifie l’auth.
 - Vérifie le rôle.
 - Construit la liste des destinataires.
@@ -207,18 +366,22 @@ Créer des notifications (table `notifications`) et cibler :
 
 ---
 
-## 8) `generate-report`
+## 12) `generate-report`
 
 ### Objectif
+
 Générer des rapports (JSON ou CSV) pour des statistiques (présence, justificatifs…).
 
 ### Accès
+
 `admin` et `professor`.
 
 ### Endpoint
+
 `POST /functions/v1/generate-report`
 
 ### Body
+
 ```json
 {
   "report_type": "presence_global",
@@ -232,14 +395,73 @@ Générer des rapports (JSON ou CSV) pour des statistiques (présence, justifica
 ```
 
 ### Sortie
+
 - `format=json` : JSON structuré
 - `format=csv` : fichier CSV en réponse (avec `Content-Disposition`)
 
 ---
 
-## 9) Exemples d’appel (mobile / dashboard)
+## 13) `update-fcm-token`
+
+### Objectif
+
+Enregistrer ou mettre à jour le token FCM de l’utilisateur connecté.
+
+### Endpoint
+
+`POST /functions/v1/update-fcm-token`
+
+### Body
+
+```json
+{
+  "fcm_token": "token"
+}
+```
+
+### Logique (résumé)
+
+- Vérifie l’auth.
+- Met à jour `users.fcm_token` pour l’utilisateur courant.
+
+---
+
+## 14) `send-push`
+
+### Objectif
+
+Envoyer une notification push via FCM legacy (appel interne depuis la base).
+
+### Accès
+
+Interne (appelé par `pg_net`).
+
+### Endpoint
+
+`POST /functions/v1/send-push`
+
+---
+
+## 15) `cron-close-sessions`
+
+### Objectif
+
+Scheduler interne pour fermer les sessions expirées, publier les annonces planifiées et envoyer les rappels d’examen.
+
+### Accès
+
+Interne (scheduler Supabase).
+
+### Endpoint
+
+`POST /functions/v1/cron-close-sessions`
+
+---
+
+## 16) Exemples d’appel (mobile / dashboard)
 
 ### Exemple cURL
+
 ```bash
 curl -X POST \
   "https://<project-ref>.supabase.co/functions/v1/mark-presence" \

@@ -33,6 +33,7 @@ Ces enums sont définis dans `001_initial_schema.sql`.
 ## 3) Tables (structure et relations)
 
 ### 3.1 `users`
+
 Extension de `auth.users` (1 ligne applicative par compte Supabase).
 
 - **Colonnes clés**
@@ -40,6 +41,7 @@ Extension de `auth.users` (1 ligne applicative par compte Supabase).
   - `email` (unique)
   - `first_name`, `last_name`
   - `role` (`user_role`)
+  - `fcm_token` : token push de l’utilisateur (legacy FCM)
   - `is_active` (bool) : permet de désactiver globalement l’accès.
 
 - **Règles**
@@ -218,6 +220,15 @@ Dans `005_automatic_notifications.sql` :
   - changement de statut de justificatif
 - `send_exam_reminders()` : envoie des rappels d’examens (appel à planifier par scheduler externe)
 
+### 6.7 Validation atomique des justificatifs
+
+- `validate_justification(...)` : valide/rejette un justificatif et met à jour la présence associée dans une transaction unique.
+
+### 6.8 Push notifications
+
+- `create_notification(...)` déclenche un appel HTTP via `pg_net` vers l’Edge Function `send-push`.
+- L’Edge Function `send-push` envoie la notification via FCM legacy.
+
 ## 7) Storage (buckets + policies)
 
 Les policies Storage sont définies dans `006_storage_policies.sql`.
@@ -241,3 +252,7 @@ Ordre principal :
 - `004_constraints_and_cron.sql` : contrainte “classe active” (implémentée via trigger + index partiel)
 - `005_automatic_notifications.sql` : notifications automatiques + rappels examens (scheduler externe)
 - `006_storage_policies.sql` : policies storage
+- `007_fix_active_filters.sql` : filtres `is_active` pour les présences et notifications
+- `008_add_fcm_token.sql` : ajout de `users.fcm_token`
+- `009_fcm_trigger.sql` : trigger `pg_net` pour pousser via `send-push`
+- `010_validate_justification.sql` : validation atomique justificatif + présence

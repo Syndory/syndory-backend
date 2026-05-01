@@ -10,6 +10,7 @@ Ce dépôt contient le **backend Supabase** du projet **Syndory** :
 
 - Base de données (structure, RLS, fonctions, triggers, storage) : `docs/database.md`
 - Edge Functions (endpoints, logique, exemples d’appel) : `docs/edge-functions.md`
+- Setup production (FCM + pg_net + scheduler) : `docs/setup-production.md`
 
 ## Structure du projet
 
@@ -53,8 +54,15 @@ supabase functions deploy open-session
 supabase functions deploy mark-presence
 supabase functions deploy close-session
 supabase functions deploy send-notification
+supabase functions deploy update-progression
+supabase functions deploy publish-seances
+supabase functions deploy submit-justification
+supabase functions deploy review-justification
 supabase functions deploy generate-report
 supabase functions deploy validate-progression
+supabase functions deploy update-fcm-token
+supabase functions deploy send-push
+supabase functions deploy cron-close-sessions
 ```
 
 ## Configuration Storage
@@ -92,3 +100,4 @@ Cette section décrit le minimum à configurer côté clients.
 - Le projet utilise **RLS** sur toutes les tables applicatives.
 - Les comptes désactivés (`users.is_active=false`) sont bloqués globalement.
 - Certaines automatisations (rappels examens, fermeture auto…) doivent être planifiées via un scheduler externe (voir `docs/database.md`).
+- Les notifications push utilisent FCM legacy (clé serveur) et un appel `pg_net` vers `send-push` (voir `docs/setup-production.md`).
