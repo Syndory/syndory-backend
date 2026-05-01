@@ -164,6 +164,16 @@ verify_jwt = true
 [functions.check-conflicts]
 verify_jwt = true
 
+[functions.cron-close-sessions]
+verify_jwt = false
+schedule = "* * * * *"
+
+[functions.send-push]
+verify_jwt = false
+
+[functions.update-fcm-token]
+verify_jwt = true
+
 [analytics]
 enabled = false
 port = 54327

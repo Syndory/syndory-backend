@@ -16,14 +16,43 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient(req);
-    
+
     // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
     if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Non authentifié' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !userProfile) {
       return new Response(
-        JSON.stringify({ error: 'Non authentifié' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Profil utilisateur introuvable' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    if (userProfile.role !== 'professor') {
+      return new Response(
+        JSON.stringify({ error: 'Accès réservé aux professeurs' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
     }
 
@@ -34,31 +63,45 @@ serve(async (req) => {
     if (!session_id) {
       return new Response(
         JSON.stringify({ error: 'Paramètre manquant: session_id requis' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
     }
 
     // Call the database function to close session
     const { data, error } = await supabase.rpc('close_session', {
       p_session_id: session_id,
-      p_professor_id: user.id
+      p_professor_id: user.id,
     });
 
     if (error) {
       console.error('Error closing session:', error);
       return new Response(
-        JSON.stringify({ error: 'Erreur lors de la fermeture de la session', details: error.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: 'Erreur lors de la fermeture de la session',
+          details: error.message,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
     }
 
-    const result = data as { success: boolean; error?: string; absents_marked?: number; session_closed?: boolean };
+    const result = data as {
+      success: boolean;
+      error?: string;
+      absents_marked?: number;
+      session_closed?: boolean;
+    };
 
     if (!result.success) {
-      return new Response(
-        JSON.stringify({ error: result.error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: result.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(
@@ -66,16 +109,21 @@ serve(async (req) => {
         success: true,
         message: 'Session fermée avec succès',
         absents_marked: result.absents_marked,
-        session_closed: result.session_closed
+        session_closed: result.session_closed,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
-
   } catch (error: any) {
     console.error('Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: 'Erreur serveur', details: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
   }
 });

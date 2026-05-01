@@ -33,6 +33,32 @@ serve(async (req: Request) => {
       });
     }
 
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !userProfile) {
+      return new Response(
+        JSON.stringify({ error: 'Profil utilisateur introuvable' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    if (userProfile.role !== 'professor') {
+      return new Response(
+        JSON.stringify({ error: 'Accès réservé aux professeurs' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
     // Parse request body
     const {
       seance_id,
@@ -318,13 +344,17 @@ serve(async (req: Request) => {
     }
 
     // Notifier les étudiants de la classe
-    await supabase.rpc('notify_class', {
+    const { error: notifyError } = await supabase.rpc('notify_class_active', {
       p_class_id: seance.class_id,
       p_type: 'session_opened',
       p_title: 'Session de présence ouverte',
       p_message: `La session de présence pour ${seance.matiere_name} est ouverte. Marquez votre présence !`,
       p_data: { session_id: session.id, seance_id: seance_id },
     });
+
+    if (notifyError) {
+      console.error('Error notifying class:', notifyError);
+    }
 
     return new Response(
       JSON.stringify({
