@@ -1,257 +1,94 @@
-# Syndory - Backend Supabase
+# Syndory Backend (Supabase)
 
-Plateforme intégrée de gestion universitaire - Backend complet sur Supabase.
+Ce dépôt contient le **backend Supabase** du projet **Syndory** :
 
-## 📁 Structure du projet
+- base de données (migrations SQL, RLS, fonctions, triggers)
+- Edge Functions (API serveur)
+- politiques Storage (buckets + accès)
+
+## Documentation
+
+- Base de données (structure, RLS, fonctions, triggers, storage) : `docs/database.md`
+- Edge Functions (endpoints, logique, exemples d’appel) : `docs/edge-functions.md`
+
+## Structure du projet
 
 ```
+docs/
+scripts/
 supabase/
-├── config.toml                    # Configuration Supabase CLI
-├── seed.sql                       # Données initiales
-├── migrations/
-│   ├── 001_initial_schema.sql     # Schéma de base de données
-│   ├── 002_rls_policies.sql       # Politiques de sécurité
-│   └── 003_functions_triggers.sql # Fonctions et triggers
-└── functions/
-    ├── _shared/
-    │   ├── cors.ts               # Headers CORS
-    │   └── supabase.ts           # Client Supabase utilitaire
-    ├── mark-presence/            # Marquage de présence GPS
-    ├── open-session/             # Ouverture session prof
-    ├── close-session/            # Fermeture session
-    ├── check-conflicts/          # Vérification conflits EDT
-    ├── validate-progression/     # Validation progression
-    ├── send-notification/        # Envoi notifications
-    └── generate-report/          # Génération rapports
+  config.toml
+  migrations/
+  functions/
+  seed.sql
 ```
 
-## 🚀 Déploiement
+## Prérequis
 
-### Prérequis
+- Compte Supabase + un projet créé
+- Supabase CLI installé
+- Connexion : `supabase login`
 
-1. Créer un projet sur [Supabase](https://supabase.com)
-2. Installer Supabase CLI: `npm install -g supabase`
-3. Se connecter: `supabase login`
+## Déploiement (recommandé)
 
-### Configuration
+### 1) Lier le projet
 
-1. Lier le projet local:
 ```bash
-supabase link --project-ref <votre-project-ref>
+supabase link --project-ref <project-ref>
 ```
 
-2. Configurer les variables d'environnement dans le Dashboard Supabase:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-
-### Déploiement du schéma
+### 2) Déployer la base de données
 
 ```bash
-# Exécuter les migrations
 supabase db push
-
-# Ou exécuter les migrations SQL via le SQL Editor du Dashboard
 ```
 
-### Déploiement des Edge Functions
+### 3) Déployer les Edge Functions
+
+Déploiement fonction par fonction (conseillé si réseau instable / rate-limit) :
 
 ```bash
-# Déployer toutes les fonctions
-supabase functions deploy
-
-# Ou déployer une fonction spécifique
-supabase functions deploy mark-presence
-supabase functions deploy open-session
-supabase functions deploy close-session
 supabase functions deploy check-conflicts
-supabase functions deploy validate-progression
+supabase functions deploy open-session
+supabase functions deploy mark-presence
+supabase functions deploy close-session
 supabase functions deploy send-notification
 supabase functions deploy generate-report
+supabase functions deploy validate-progression
 ```
 
-### Configuration du Storage
+## Configuration Storage
 
-Créer les buckets suivants dans Storage > Buckets:
+Buckets à créer dans Supabase (Dashboard → Storage → Buckets) :
 
-1. **avatars** (public)
-   - File size limit: 2MB
-   - Allowed types: jpg, png, webp
+- `avatars` (public)
+- `resources` (private)
+- `justificatifs` (private)
+- `annonces` (private)
 
-2. **resources** (private)
-   - File size limit: 20MB
-   - Allowed types: pdf, docx, pptx, images
+Les policies Storage sont déployées via migration SQL.
 
-3. **justificatifs** (private)
-   - File size limit: 10MB
-   - Allowed types: pdf, jpg, png
+## Setup applications (mobile) et dashboard
 
-4. **annonces** (private)
-   - File size limit: 10MB
-   - Allowed types: pdf, docx, images
+Cette section décrit le minimum à configurer côté clients.
 
-### Création du compte admin initial
+### Mobile (app étudiants / professeurs)
 
-```sql
--- Via le SQL Editor ou après connexion
-INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
-VALUES (
-  gen_random_uuid(),
-  'admin@syndory.com',
-  crypt('VotreMotDePasseFort', gen_salt('bf')),
-  NOW(),
-  '{"first_name": "Admin", "last_name": "Syndory", "role": "admin"}'::jsonb
-);
+- **Variables à définir** (dans l’app) :
+  - `SUPABASE_URL`
+  - `SUPABASE_ANON_KEY`
+- **Fonctions utilisées** : voir `docs/edge-functions.md`
+- **Storage** : utiliser les buckets selon le besoin (avatars, justificatifs, ressources, annonces)
 
--- Puis vérifier que le trigger a créé l'entrée dans la table users
--- et mettre à jour le rôle si nécessaire:
-UPDATE users SET role = 'admin' WHERE email = 'admin@syndory.com';
-```
+### Dashboard (administration)
 
-## 📊 Schéma de base de données
+- **Variables à définir** :
+  - `SUPABASE_URL`
+  - `SUPABASE_ANON_KEY`
+- Les opérations sensibles sont protégées par RLS + vérifications côté Edge Functions.
 
-### Tables principales
+## Notes importantes
 
-| Table | Description |
-|-------|-------------|
-| `users` | Profils utilisateurs (étudiants, profs, admin) |
-| `filieres` | Filières académiques |
-| `classes` | Classes/groupes |
-| `matieres` | Matières enseignées |
-| `salles` | Salles avec coordonnées GPS |
-| `seances` | Emploi du temps |
-| `sessions` | Sessions de présence géolocalisées |
-| `presences` | Marquage de présence |
-| `justificatifs` | Justificatifs d'absence |
-| `programmes` | Cahiers de texte |
-| `progressions` | Suivi de progression pédagogique |
-| `ressources` | Documents pédagogiques |
-| `annonces` | Annonces et communications |
-| `notifications` | Notifications push |
-| `logs_activite` | Journal d'audit |
-| `parametres` | Configuration système |
-
-### Rôles et permissions
-
-- **student**: Consultation planning, marquage présence, justificatifs
-- **class_representative**: Permissions étudiant + gestion progression, documents classe
-- **professor**: Gestion sessions, présences, ressources, progression
-- **admin**: Contrôle total sur la plateforme
-
-## 🔧 Edge Functions
-
-### `mark-presence`
-```http
-POST /functions/v1/mark-presence
-Body: { session_id, gps_lat, gps_long }
-```
-Marque la présence d'un étudiant avec vérification GPS.
-
-### `open-session`
-```http
-POST /functions/v1/open-session
-Body: { seance_id, gps_lat, gps_long, marking_window_duration }
-```
-Ouvre une session de présence (professeur uniquement).
-
-### `close-session`
-```http
-POST /functions/v1/close-session
-Body: { session_id }
-```
-Ferme une session et marque les absents.
-
-### `check-conflicts`
-```http
-POST /functions/v1/check-conflicts
-Body: { matiere_id, professor_id, class_id, salle_id, date, start_time, end_time }
-```
-Vérifie les conflits d'emploi du temps.
-
-### `validate-progression`
-```http
-POST /functions/v1/validate-progression
-Body: { progression_id }
-```
-Valide définitivement une progression.
-
-### `send-notification`
-```http
-POST /functions/v1/send-notification
-Body: { user_ids?, target_type?, target_id?, type, title, message, data? }
-```
-Envoie des notifications aux utilisateurs.
-
-### `generate-report`
-```http
-POST /functions/v1/generate-report
-Body: { report_type, format: 'csv'|'json', filters? }
-```
-Génère des rapports statistiques.
-
-## 🛡️ Sécurité
-
-### RLS (Row Level Security)
-Toutes les tables ont RLS activé avec des politiques granulaires:
-- Les étudiants ne voient que leurs données et celles de leur classe
-- Les profs accèdent aux données de leurs classes/matières
-- L'admin a un accès complet
-
-### Authentification
-- Authentification email/password via Supabase Auth
-- Pas d'inscription publique (enable_signup = false)
-- Tokens JWT avec expiration et refresh
-
-### Vérification GPS
-- Calcul de distance Haversine pour validation de présence
-- Rayon de tolérance configurable par salle (défaut: 50m)
-- Vérification côté serveur uniquement
-
-## 📱 Notifications Push
-
-Les notifications sont stockées dans la table `notifications` et peuvent être poussées vers les apps mobiles via:
-- Firebase Cloud Messaging (FCM) pour Android
-- Supabase Realtime pour les mises à jour temps réel
-
-Événements déclenchant des notifications:
-- Publication/modification emploi du temps
-- Ouverture session de présence
-- Nouveau document publié
-- Justificatif soumis/validé/rejeté
-- Annonce publiée
-- Rappel examen (24h avant)
-
-## 📈 Monitoring et logs
-
-- Journal d'activité dans `logs_activite`
-- Logs Supabase Functions dans le Dashboard
-- Métriques de performance via Supabase Analytics
-
-## 🔗 API Reference
-
-### Base URL
-```
-https://<project-ref>.supabase.co
-```
-
-### Endpoints principaux
-
-| Endpoint | Méthode | Description |
-|----------|---------|-------------|
-| `/auth/v1/token` | POST | Connexion |
-| `/rest/v1/users` | GET/POST/PATCH | Gestion utilisateurs |
-| `/rest/v1/seances` | GET/POST/PATCH | Emploi du temps |
-| `/rest/v1/sessions` | GET/POST/PATCH | Sessions présence |
-| `/rest/v1/presences` | GET/POST/PATCH | Présences |
-| `/rest/v1/ressources` | GET/POST | Ressources |
-| `/functions/v1/*` | POST | Edge Functions |
-| `/storage/v1/object/*` | GET/POST | Fichiers |
-
-## 🆘 Support
-
-Pour toute question ou problème:
-- Documentation Supabase: https://supabase.com/docs
-- Issues: Créer une issue sur le repository
-
----
-
-**Syndory** - Plateforme de gestion universitaire | L3 Architecture Logicielle
+- Le projet utilise **RLS** sur toutes les tables applicatives.
+- Les comptes désactivés (`users.is_active=false`) sont bloqués globalement.
+- Certaines automatisations (rappels examens, fermeture auto…) doivent être planifiées via un scheduler externe (voir `docs/database.md`).

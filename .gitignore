@@ -1,2 +1,15 @@
 Syndory_Cahier_des_Charges_v2.md
 Syndory_Interfaces_UIUX.md
+
+.env
+.env.local
+.env.*.local
+
+node_modules/
+dist/
+build/
+.DS_Store
+
+.supabase/
+supabase/.temp/
+supabase/.temp/**

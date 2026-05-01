@@ -21,6 +21,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW
@@ -38,26 +39,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_seances_updated_at ON seances;
 CREATE TRIGGER update_seances_updated_at
     BEFORE UPDATE ON seances
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_programmes_updated_at ON programmes;
 CREATE TRIGGER update_programmes_updated_at
     BEFORE UPDATE ON programmes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_presences_updated_at ON presences;
 CREATE TRIGGER update_presences_updated_at
     BEFORE UPDATE ON presences
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_progressions_updated_at ON progressions;
 CREATE TRIGGER update_progressions_updated_at
     BEFORE UPDATE ON progressions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_parametres_updated_at ON parametres;
 CREATE TRIGGER update_parametres_updated_at
     BEFORE UPDATE ON parametres
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -254,14 +261,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION check_schedule_conflicts(
-    p_seance_id UUID DEFAULT NULL,
     p_matiere_id UUID,
     p_professor_id UUID,
     p_class_id UUID,
     p_salle_id UUID,
     p_date DATE,
     p_start_time TIME,
-    p_end_time TIME
+    p_end_time TIME,
+    p_seance_id UUID DEFAULT NULL
 )
 RETURNS TABLE (
     conflict_type TEXT,
@@ -463,6 +470,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS log_user_changes ON users;
 CREATE TRIGGER log_user_changes
     AFTER INSERT OR UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION trigger_log_user_changes();
@@ -492,6 +500,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS log_seance_changes ON seances;
 CREATE TRIGGER log_seance_changes
     AFTER INSERT OR UPDATE ON seances
     FOR EACH ROW EXECUTE FUNCTION trigger_log_seance_changes();
@@ -520,6 +529,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS on_session_opened ON sessions;
 CREATE TRIGGER on_session_opened
     AFTER INSERT ON sessions
     FOR EACH ROW EXECUTE FUNCTION create_initial_presences();

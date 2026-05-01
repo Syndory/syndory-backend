@@ -6,6 +6,12 @@
 -- 1. BUCKET AVATARS (Public)
 -- =====================================================
 
+-- Suppression préalable pour idempotence
+DROP POLICY IF EXISTS avatars_select ON storage.objects;
+DROP POLICY IF EXISTS avatars_insert ON storage.objects;
+DROP POLICY IF EXISTS avatars_update ON storage.objects;
+DROP POLICY IF EXISTS avatars_delete ON storage.objects;
+
 -- Autoriser lecture publique (avatars visibles par tous)
 CREATE POLICY avatars_select ON storage.objects
     FOR SELECT TO public
@@ -50,6 +56,12 @@ CREATE POLICY avatars_delete ON storage.objects
 -- 2. BUCKET RESOURCES (Privé - Documents pédagogiques)
 -- =====================================================
 
+-- Suppression préalable pour idempotence
+DROP POLICY IF EXISTS resources_select ON storage.objects;
+DROP POLICY IF EXISTS resources_insert ON storage.objects;
+DROP POLICY IF EXISTS resources_update ON storage.objects;
+DROP POLICY IF EXISTS resources_delete ON storage.objects;
+
 -- Lecture : admin, prof concerné, ou étudiants de la classe concernée
 CREATE POLICY resources_select ON storage.objects
     FOR SELECT TO authenticated
@@ -62,7 +74,7 @@ CREATE POLICY resources_select ON storage.objects
                 -- Prof qui enseigne dans cette classe
                 SELECT 1 FROM ressources r
                 JOIN student_classes sc ON r.class_id = sc.class_id
-                WHERE r.file_path = name
+                WHERE r.file_url LIKE '%' || name
                 AND sc.student_id = auth.uid()
                 AND sc.is_active = true
             )
@@ -70,14 +82,14 @@ CREATE POLICY resources_select ON storage.objects
                 -- Étudiant de la classe
                 SELECT 1 FROM ressources r
                 JOIN student_classes sc ON r.class_id = sc.class_id
-                WHERE r.file_path = name
+                WHERE r.file_url LIKE '%' || name
                 AND sc.student_id = auth.uid()
                 AND sc.is_active = true
             )
             OR EXISTS (
                 -- Uploader = soi-même
                 SELECT 1 FROM ressources r
-                WHERE r.file_path = name
+                WHERE r.file_url LIKE '%' || name
                 AND r.uploaded_by = auth.uid()
             )
         )
@@ -104,13 +116,18 @@ CREATE POLICY resources_update ON storage.objects
         AND is_active_user()
         AND EXISTS (
             SELECT 1 FROM ressources r
-            WHERE r.file_path = name
+            WHERE r.file_url LIKE '%' || name
             AND r.uploaded_by = auth.uid()
         )
     )
     WITH CHECK (
         bucket_id = 'resources'
         AND is_active_user()
+        AND EXISTS (
+            SELECT 1 FROM ressources r
+            WHERE r.file_url LIKE '%' || name
+            AND r.uploaded_by = auth.uid()
+        )
     );
 
 -- Suppression : uploader ou admin
@@ -123,7 +140,7 @@ CREATE POLICY resources_delete ON storage.objects
             is_admin()
             OR EXISTS (
                 SELECT 1 FROM ressources r
-                WHERE r.file_path = name
+                WHERE r.file_url LIKE '%' || name
                 AND r.uploaded_by = auth.uid()
             )
         )
@@ -132,6 +149,12 @@ CREATE POLICY resources_delete ON storage.objects
 -- =====================================================
 -- 3. BUCKET JUSTIFICATIFS (Privé - Pièces justificatives)
 -- =====================================================
+
+-- Suppression préalable pour idempotence
+DROP POLICY IF EXISTS justificatifs_select ON storage.objects;
+DROP POLICY IF EXISTS justificatifs_insert ON storage.objects;
+DROP POLICY IF EXISTS justificatifs_update ON storage.objects;
+DROP POLICY IF EXISTS justificatifs_delete ON storage.objects;
 
 -- Lecture : admin, prof concerné (via présence), ou étudiant propriétaire
 CREATE POLICY justificatifs_select ON storage.objects
@@ -147,13 +170,13 @@ CREATE POLICY justificatifs_select ON storage.objects
                 JOIN presences p ON j.presence_id = p.id
                 JOIN sessions ses ON p.session_id = ses.id
                 JOIN seances sea ON ses.seance_id = sea.id
-                WHERE j.file_path = name
+                WHERE j.file_url LIKE '%' || name
                 AND sea.professor_id = auth.uid()
             )
             OR EXISTS (
                 -- Étudiant propriétaire
                 SELECT 1 FROM justificatifs j
-                WHERE j.file_path = name
+                WHERE j.file_url LIKE '%' || name
                 AND j.student_id = auth.uid()
             )
         )
@@ -183,6 +206,12 @@ CREATE POLICY justificatifs_delete ON storage.objects
 -- 4. BUCKET ANNONCES (Privé - Fichiers attachés aux annonces)
 -- =====================================================
 
+-- Suppression préalable pour idempotence
+DROP POLICY IF EXISTS annonces_storage_select ON storage.objects;
+DROP POLICY IF EXISTS annonces_storage_insert ON storage.objects;
+DROP POLICY IF EXISTS annonces_storage_update ON storage.objects;
+DROP POLICY IF EXISTS annonces_storage_delete ON storage.objects;
+
 -- Lecture : selon visibilité de l'annonce
 CREATE POLICY annonces_storage_select ON storage.objects
     FOR SELECT TO authenticated
@@ -194,20 +223,20 @@ CREATE POLICY annonces_storage_select ON storage.objects
             OR EXISTS (
                 -- Annonce publique
                 SELECT 1 FROM annonces a
-                WHERE a.attachment_path = name
+                WHERE a.attachment_url LIKE '%' || name
                 AND a.is_published = true
             )
             OR EXISTS (
                 -- Annonce ciblée étudiants
                 SELECT 1 FROM annonces a
-                WHERE a.attachment_path = name
+                WHERE a.attachment_url LIKE '%' || name
                 AND a.target_type = 'students'
                 AND is_student()
             )
             OR EXISTS (
                 -- Annonce ciblée profs
                 SELECT 1 FROM annonces a
-                WHERE a.attachment_path = name
+                WHERE a.attachment_url LIKE '%' || name
                 AND a.target_type = 'professors'
                 AND is_professor()
             )
@@ -215,7 +244,7 @@ CREATE POLICY annonces_storage_select ON storage.objects
                 -- Annonce ciblée classe de l'étudiant
                 SELECT 1 FROM annonces a
                 JOIN student_classes sc ON a.target_id = sc.class_id
-                WHERE a.attachment_path = name
+                WHERE a.attachment_url LIKE '%' || name
                 AND a.target_type = 'classe'
                 AND sc.student_id = auth.uid()
                 AND sc.is_active = true
@@ -225,7 +254,7 @@ CREATE POLICY annonces_storage_select ON storage.objects
                 SELECT 1 FROM annonces a
                 JOIN classes c ON a.target_id = c.filiere_id
                 JOIN student_classes sc ON c.id = sc.class_id
-                WHERE a.attachment_path = name
+                WHERE a.attachment_url LIKE '%' || name
                 AND a.target_type = 'filiere'
                 AND sc.student_id = auth.uid()
                 AND sc.is_active = true

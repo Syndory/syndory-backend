@@ -40,33 +40,63 @@ echo -e "${GREEN}✅ Supabase CLI trouvé${NC}"
 echo ""
 echo -e "${YELLOW}🔧 Configuration du projet...${NC}"
 
-if [ -f "supabase/config.toml" ]; then
-    PROJECT_REF=$(grep -E '^project_id' supabase/config.toml | cut -d'=' -f2 | tr -d ' "')
-fi
+# Fonction pour vérifier si déjà lié et récupérer le project_ref
+check_linked_project() {
+    # Méthode 1: via fichier de config de lien (plus rapide, pas de requête réseau)
+    if [ -f ".supabase/temp/link-config.json" ]; then
+        local file_ref=$(cat .supabase/temp/link-config.json 2>/dev/null | grep -o '"project_ref":"[^"]*"' | cut -d'"' -f4)
+        if [ -n "$file_ref" ] && [ ${#file_ref} -eq 20 ]; then
+            echo "$file_ref"
+            return 0
+        fi
+    fi
+    
+    # Méthode 2: via supabase status (avec timeout de 5 secondes)
+    local linked_ref=$(timeout 5 supabase status --output json 2>/dev/null | grep -o '"project_ref":"[^"]*"' | cut -d'"' -f4)
+    if [ -n "$linked_ref" ] && [ ${#linked_ref} -eq 20 ]; then
+        echo "$linked_ref"
+        return 0
+    fi
+    
+    return 1
+}
 
-if [ -z "$PROJECT_REF" ]; then
-    echo -e "${YELLOW}⚠️  Project ref non trouvé dans config.toml${NC}"
-    echo -n "Entrez votre project ref (trouvé dans l'URL Supabase): "
-    read PROJECT_REF
-fi
+# Vérifier si déjà lié
+PROJECT_REF=$(check_linked_project)
 
-if [ -z "$PROJECT_REF" ]; then
-    echo -e "${RED}❌ Project ref requis${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ Project ref: ${PROJECT_REF}${NC}"
-
-# Connexion au projet
-echo ""
-echo -e "${YELLOW}🔗 Connexion au projet Supabase...${NC}"
-
-if ! supabase status &> /dev/null; then
-    echo "Projet non lié. Lien en cours..."
+if [ -n "$PROJECT_REF" ]; then
+    echo -e "${GREEN}✅ Projet déjà lié: ${PROJECT_REF}${NC}"
+else
+    # Essayer de récupérer depuis config.toml
+    if [ -f "supabase/config.toml" ]; then
+        PROJECT_REF=$(grep -E '^project_id' supabase/config.toml | cut -d'=' -f2 | tr -d ' "')
+    fi
+    
+    # Vérifier si c'est un vrai project_ref (20 caractères)
+    if [ -n "$PROJECT_REF" ] && [ ${#PROJECT_REF} -ne 20 ]; then
+        echo -e "${YELLOW}⚠️  project_id dans config.toml n'est pas un project ref valide${NC}"
+        PROJECT_REF=""
+    fi
+    
+    # Demander le project ref si toujours vide
+    if [ -z "$PROJECT_REF" ]; then
+        echo -e "${YELLOW}⚠️  Project ref non trouvé${NC}"
+        echo -n "Entrez votre project ref (20 caractères, trouvé dans l'URL Supabase): "
+        read PROJECT_REF
+    fi
+    
+    # Valider le format
+    if [ -z "$PROJECT_REF" ] || [ ${#PROJECT_REF} -ne 20 ]; then
+        echo -e "${RED}❌ Project ref requis (20 caractères alphanumériques)${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Project ref: ${PROJECT_REF}${NC}"
+    echo ""
+    echo -e "${YELLOW}🔗 Lien au projet Supabase...${NC}"
     supabase link --project-ref "$PROJECT_REF"
+    echo -e "${GREEN}✅ Projet lié${NC}"
 fi
-
-echo -e "${GREEN}✅ Projet lié${NC}"
 
 # Déploiement des migrations
 echo ""

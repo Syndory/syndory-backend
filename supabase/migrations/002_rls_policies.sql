@@ -27,6 +27,14 @@ ALTER TABLE parametres ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vacances_examens ENABLE ROW LEVEL SECURITY;
 
 -- =====================================================
+-- 1b. AJOUT COLONNE MANQUANTE student_classes.is_active
+-- =====================================================
+
+-- Cette colonne est nécessaire pour les policies mais manquait dans le schéma initial
+ALTER TABLE student_classes ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+CREATE INDEX IF NOT EXISTS idx_student_class_active ON student_classes(student_id, is_active) WHERE is_active = true;
+
+-- =====================================================
 -- 2. FONCTIONS UTILITAIRES POUR RLS
 -- =====================================================
 
@@ -119,6 +127,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 3. POLICIES - USERS
 -- =====================================================
 
+-- Suppression préalable pour idempotence
+DROP POLICY IF EXISTS users_select ON users;
+DROP POLICY IF EXISTS users_update ON users;
+DROP POLICY IF EXISTS users_insert ON users;
+DROP POLICY IF EXISTS users_delete ON users;
+
 -- SELECT: tout le monde peut voir les profils de base
 CREATE POLICY users_select ON users
     FOR SELECT TO authenticated
@@ -156,6 +170,9 @@ CREATE POLICY users_delete ON users
 -- 4. POLICIES - FILIERES
 -- =====================================================
 
+DROP POLICY IF EXISTS filieres_select ON filieres;
+DROP POLICY IF EXISTS filieres_all_admin ON filieres;
+
 CREATE POLICY filieres_select ON filieres
     FOR SELECT TO authenticated
     USING (is_active_user());
@@ -168,6 +185,9 @@ CREATE POLICY filieres_all_admin ON filieres
 -- =====================================================
 -- 5. POLICIES - CLASSES
 -- =====================================================
+
+DROP POLICY IF EXISTS classes_select ON classes;
+DROP POLICY IF EXISTS classes_all_admin ON classes;
 
 CREATE POLICY classes_select ON classes
     FOR SELECT TO authenticated
@@ -194,6 +214,9 @@ CREATE POLICY classes_all_admin ON classes
 -- 6. POLICIES - MATIERES
 -- =====================================================
 
+DROP POLICY IF EXISTS matieres_select ON matieres;
+DROP POLICY IF EXISTS matieres_all_admin ON matieres;
+
 CREATE POLICY matieres_select ON matieres
     FOR SELECT TO authenticated
     USING (is_active_user());
@@ -207,6 +230,9 @@ CREATE POLICY matieres_all_admin ON matieres
 -- 7. POLICIES - SALLES
 -- =====================================================
 
+DROP POLICY IF EXISTS salles_select ON salles;
+DROP POLICY IF EXISTS salles_all_admin ON salles;
+
 CREATE POLICY salles_select ON salles
     FOR SELECT TO authenticated
     USING (is_active_user());
@@ -219,6 +245,9 @@ CREATE POLICY salles_all_admin ON salles
 -- =====================================================
 -- 8. POLICIES - PROFESSEUR_MATIERES
 -- =====================================================
+
+DROP POLICY IF EXISTS prof_mat_select ON professeur_matieres;
+DROP POLICY IF EXISTS prof_mat_all_admin ON professeur_matieres;
 
 CREATE POLICY prof_mat_select ON professeur_matieres
     FOR SELECT TO authenticated
@@ -245,6 +274,9 @@ CREATE POLICY prof_mat_all_admin ON professeur_matieres
 -- 9. POLICIES - STUDENT_CLASSES
 -- =====================================================
 
+DROP POLICY IF EXISTS student_class_select ON student_classes;
+DROP POLICY IF EXISTS student_class_all_admin ON student_classes;
+
 CREATE POLICY student_class_select ON student_classes
     FOR SELECT TO authenticated
     USING (
@@ -265,6 +297,9 @@ CREATE POLICY student_class_all_admin ON student_classes
 -- 10. POLICIES - SEMESTRES
 -- =====================================================
 
+DROP POLICY IF EXISTS semestres_select ON semestres;
+DROP POLICY IF EXISTS semestres_all_admin ON semestres;
+
 CREATE POLICY semestres_select ON semestres
     FOR SELECT TO authenticated
     USING (is_active_user());
@@ -277,6 +312,9 @@ CREATE POLICY semestres_all_admin ON semestres
 -- =====================================================
 -- 11. POLICIES - SEANCES (Emploi du temps)
 -- =====================================================
+
+DROP POLICY IF EXISTS seances_select ON seances;
+DROP POLICY IF EXISTS seances_all_admin ON seances;
 
 CREATE POLICY seances_select ON seances
     FOR SELECT TO authenticated
@@ -298,6 +336,11 @@ CREATE POLICY seances_all_admin ON seances
 -- =====================================================
 -- 12. POLICIES - PROGRAMMES
 -- =====================================================
+
+DROP POLICY IF EXISTS programmes_select ON programmes;
+DROP POLICY IF EXISTS programmes_insert_update ON programmes;
+DROP POLICY IF EXISTS programmes_update ON programmes;
+DROP POLICY IF EXISTS programmes_delete ON programmes;
 
 CREATE POLICY programmes_select ON programmes
     FOR SELECT TO authenticated
@@ -326,6 +369,11 @@ CREATE POLICY programmes_delete ON programmes
 -- =====================================================
 -- 13. POLICIES - SESSIONS (Présence)
 -- =====================================================
+
+DROP POLICY IF EXISTS sessions_select ON sessions;
+DROP POLICY IF EXISTS sessions_insert ON sessions;
+DROP POLICY IF EXISTS sessions_update ON sessions;
+DROP POLICY IF EXISTS sessions_delete ON sessions;
 
 CREATE POLICY sessions_select ON sessions
     FOR SELECT TO authenticated
@@ -378,6 +426,10 @@ CREATE POLICY sessions_delete ON sessions
 -- =====================================================
 -- 14. POLICIES - PRESENCES
 -- =====================================================
+
+DROP POLICY IF EXISTS presences_select ON presences;
+DROP POLICY IF EXISTS presences_insert ON presences;
+DROP POLICY IF EXISTS presences_update ON presences;
 
 CREATE POLICY presences_select ON presences
     FOR SELECT TO authenticated
@@ -461,6 +513,10 @@ CREATE POLICY presences_update ON presences
 -- 15. POLICIES - JUSTIFICATIFS
 -- =====================================================
 
+DROP POLICY IF EXISTS justificatifs_select ON justificatifs;
+DROP POLICY IF EXISTS justificatifs_insert ON justificatifs;
+DROP POLICY IF EXISTS justificatifs_update ON justificatifs;
+
 CREATE POLICY justificatifs_select ON justificatifs
     FOR SELECT TO authenticated
     USING (
@@ -511,6 +567,11 @@ CREATE POLICY justificatifs_update ON justificatifs
 -- =====================================================
 -- 16. POLICIES - PROGRESSIONS
 -- =====================================================
+
+DROP POLICY IF EXISTS progressions_select ON progressions;
+DROP POLICY IF EXISTS progressions_insert ON progressions;
+DROP POLICY IF EXISTS progressions_update ON progressions;
+DROP POLICY IF EXISTS progressions_delete ON progressions;
 
 CREATE POLICY progressions_select ON progressions
     FOR SELECT TO authenticated
@@ -590,6 +651,10 @@ CREATE POLICY progressions_delete ON progressions
 -- 17. POLICIES - RESSOURCES
 -- =====================================================
 
+DROP POLICY IF EXISTS ressources_select ON ressources;
+DROP POLICY IF EXISTS ressources_insert ON ressources;
+DROP POLICY IF EXISTS ressources_update_delete ON ressources;
+
 CREATE POLICY ressources_select ON ressources
     FOR SELECT TO authenticated
     USING (
@@ -632,6 +697,9 @@ CREATE POLICY ressources_update_delete ON ressources
 -- 18. POLICIES - ANNONCES
 -- =====================================================
 
+DROP POLICY IF EXISTS annonces_select ON annonces;
+DROP POLICY IF EXISTS annonces_all_admin ON annonces;
+
 CREATE POLICY annonces_select ON annonces
     FOR SELECT TO authenticated
     USING (
@@ -661,6 +729,11 @@ CREATE POLICY annonces_all_admin ON annonces
 -- 19. POLICIES - NOTIFICATIONS
 -- =====================================================
 
+DROP POLICY IF EXISTS notifications_select ON notifications;
+DROP POLICY IF EXISTS notifications_insert ON notifications;
+DROP POLICY IF EXISTS notifications_update ON notifications;
+DROP POLICY IF EXISTS notifications_delete ON notifications;
+
 CREATE POLICY notifications_select ON notifications
     FOR SELECT TO authenticated
     USING (is_active_user() AND user_id = auth.uid());
@@ -682,6 +755,9 @@ CREATE POLICY notifications_delete ON notifications
 -- 20. POLICIES - LOGS_ACTIVITE
 -- =====================================================
 
+DROP POLICY IF EXISTS logs_select ON logs_activite;
+DROP POLICY IF EXISTS logs_all_admin ON logs_activite;
+
 CREATE POLICY logs_select ON logs_activite
     FOR SELECT TO authenticated
     USING (is_active_user() AND is_admin());
@@ -695,6 +771,9 @@ CREATE POLICY logs_all_admin ON logs_activite
 -- 21. POLICIES - PARAMETRES
 -- =====================================================
 
+DROP POLICY IF EXISTS parametres_select ON parametres;
+DROP POLICY IF EXISTS parametres_all_admin ON parametres;
+
 CREATE POLICY parametres_select ON parametres
     FOR SELECT TO authenticated
     USING (is_active_user());
@@ -707,6 +786,9 @@ CREATE POLICY parametres_all_admin ON parametres
 -- =====================================================
 -- 22. POLICIES - VACANCES_EXAMENS
 -- =====================================================
+
+DROP POLICY IF EXISTS vacances_select ON vacances_examens;
+DROP POLICY IF EXISTS vacances_all_admin ON vacances_examens;
 
 CREATE POLICY vacances_select ON vacances_examens
     FOR SELECT TO authenticated

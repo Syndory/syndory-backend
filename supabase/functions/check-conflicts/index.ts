@@ -31,15 +31,18 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient(req);
-    
+
     // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
     if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Non authentifié' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Non authentifié' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Check if user is admin
@@ -52,7 +55,10 @@ serve(async (req) => {
     if (userData?.role !== 'admin') {
       return new Response(
         JSON.stringify({ error: 'Accès réservé aux administrateurs' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
     }
 
@@ -65,34 +71,51 @@ serve(async (req) => {
       salle_id,
       date,
       start_time,
-      end_time
+      end_time,
     }: CheckConflictsRequest = await req.json();
 
     // Validation
-    if (!matiere_id || !professor_id || !class_id || !salle_id || !date || !start_time || !end_time) {
+    if (
+      !matiere_id ||
+      !professor_id ||
+      !class_id ||
+      !salle_id ||
+      !date ||
+      !start_time ||
+      !end_time
+    ) {
       return new Response(
         JSON.stringify({ error: 'Tous les paramètres sont requis' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
     }
 
     // Call the database function to check conflicts
     const { data, error } = await supabase.rpc('check_schedule_conflicts', {
-      p_seance_id: seance_id || null,
       p_matiere_id: matiere_id,
       p_professor_id: professor_id,
       p_class_id: class_id,
       p_salle_id: salle_id,
       p_date: date,
       p_start_time: start_time,
-      p_end_time: end_time
+      p_end_time: end_time,
+      p_seance_id: seance_id || null,
     });
 
     if (error) {
       console.error('Error checking conflicts:', error);
       return new Response(
-        JSON.stringify({ error: 'Erreur lors de la vérification des conflits', details: error.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: 'Erreur lors de la vérification des conflits',
+          details: error.message,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
     }
 
@@ -103,16 +126,21 @@ serve(async (req) => {
       JSON.stringify({
         has_conflicts: hasConflicts,
         conflicts: conflicts,
-        can_create: !hasConflicts
+        can_create: !hasConflicts,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
-
   } catch (error: any) {
     console.error('Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: 'Erreur serveur', details: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
   }
 });

@@ -13,7 +13,7 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+major_version = 17
 
 [db.pooler]
 enabled = false
@@ -24,7 +24,6 @@ max_client_conn = 100
 
 [realtime]
 enabled = true
-port = 54323
 
 [studio]
 enabled = true
@@ -41,7 +40,6 @@ sender_name = "Syndory"
 
 [storage]
 enabled = true
-port = 54327
 file_size_limit = "20MiB"
 
 [storage.buckets.avatars]
@@ -66,14 +64,11 @@ allowed_mime_types = ["application/pdf", "image/jpeg", "image/png", "application
 
 [auth]
 enabled = true
-port = 54329
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://localhost:3000", "com.syndory.app://*"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
-enable_signup = false
-disable_signup = true
 
 [auth.email]
 enable_signup = false
@@ -146,7 +141,6 @@ enabled = false
 
 [edge_runtime]
 enabled = true
-port = 54328
 inspector_port = 10000
 
 [functions.mark-presence]

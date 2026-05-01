@@ -278,20 +278,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Programmer via pg_cron si disponible
-DO $$
-BEGIN
-  BEGIN
-    CREATE EXTENSION IF NOT EXISTS pg_cron;
-  EXCEPTION WHEN OTHERS THEN
-    RETURN;
-  END;
-
-  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'send_exam_reminders_job') THEN
-    PERFORM cron.schedule(
-      'send_exam_reminders_job',
-      '*/5 * * * *',
-      $$SELECT send_exam_reminders();$$
-    );
-  END IF;
-END $$;
+-- NOTE: pg_cron n'est généralement pas disponible dans l'environnement Supabase hébergé.
+-- Ce job doit être configuré manuellement via le dashboard Supabase
+-- ou via une Edge Function externe avec un scheduler.
+--
+-- Job recommandé:
+-- - Toutes les 5 minutes: SELECT send_exam_reminders();

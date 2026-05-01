@@ -32,48 +32,31 @@ FOR EACH ROW
 EXECUTE FUNCTION enforce_single_active_class_per_student();
 
 -- Unicité: au plus une affectation active par étudiant
+-- NOTE: Utilisation d'un index partiel + trigger au lieu de EXCLUDE (qui nécessite btree_gist sur Supabase)
 DO $$
 BEGIN
+  -- Créer un index partiel unique pour les affectations actives
   IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'student_classes_one_active_per_student'
+    SELECT 1 FROM pg_indexes 
+    WHERE indexname = 'idx_student_classes_one_active'
   ) THEN
-    ALTER TABLE student_classes
-    ADD CONSTRAINT student_classes_one_active_per_student
-    EXCLUDE USING gist (student_id WITH =)
-    WHERE (is_active);
+    CREATE UNIQUE INDEX idx_student_classes_one_active 
+    ON student_classes (student_id) 
+    WHERE (is_active = true);
   END IF;
 END $$;
 
 -- =====================================================
 -- 2. CRON JOBS (pg_cron)
 -- =====================================================
-
-DO $$
-BEGIN
-  BEGIN
-    CREATE EXTENSION IF NOT EXISTS pg_cron;
-  EXCEPTION WHEN OTHERS THEN
-    -- pg_cron peut ne pas être disponible selon l'environnement Supabase
-    RETURN;
-  END;
-
-  -- Fermer les sessions expirées: toutes les minutes
-  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'close_expired_sessions_job') THEN
-    PERFORM cron.schedule(
-      'close_expired_sessions_job',
-      '* * * * *',
-      $$SELECT close_expired_sessions();$$
-    );
-  END IF;
-
-  -- Publier les annonces programmées: toutes les minutes
-  IF NOT EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'publish_scheduled_annonces_job') THEN
-    PERFORM cron.schedule(
-      'publish_scheduled_annonces_job',
-      '* * * * *',
-      $$SELECT publish_scheduled_annonces();$$
-    );
-  END IF;
-END $$;
+-- NOTE: pg_cron n'est généralement pas disponible dans l'environnement Supabase hébergé.
+-- Les jobs suivants doivent être configurés manuellement via le dashboard Supabase
+-- ou via une Edge Function externe avec un scheduler.
+--
+-- Jobs recommandés:
+-- 1. Fermer les sessions expirées: toutes les minutes
+--    - Appeler la fonction: SELECT close_expired_sessions();
+-- 2. Publier les annonces programmées: toutes les minutes
+--    - Appeler la fonction: SELECT publish_scheduled_annonces();
+--
+-- Alternative: Utiliser une Edge Function avec un cron externe (GitHub Actions, etc.)
