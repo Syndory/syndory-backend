@@ -18,6 +18,20 @@ serve(async (req: Request) => {
   }
 
   try {
+    if (!Deno.env.get('FCM_SERVER_KEY')) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: 'FCM non configuré',
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
     const supabase = getSupabaseAdmin();
     const {
       user_id,

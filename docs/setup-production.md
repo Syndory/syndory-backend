@@ -2,40 +2,36 @@
 
 ## Configure functions URL for pg_net
 
-The notification trigger uses `pg_net` to call the `send-push` edge function. Set the base functions URL in Postgres so the trigger can reach your production endpoint.
+The notification trigger uses `pg_net` to call the `send-push` edge function.
 
-Run this in the Supabase SQL editor (or a migration if you prefer):
-
-```sql
-alter database postgres set app.settings.functions_url = 'https://<project-ref>.functions.supabase.co';
-```
-
-Then reload the setting:
-
-```sql
-select pg_reload_conf();
-```
-
-For local development, the default fallback remains:
-
-```
-http://localhost:54321/functions/v1
-```
+The database function uses `app.settings.functions_url` when available, but falls back to the project Functions URL if the setting cannot be configured on hosted Supabase.
 
 ## Required secrets
 
 Set these secrets in your Supabase project:
 
-- `FCM_SERVER_KEY` (legacy FCM server key)
+- `FCM_SERVER_KEY` (legacy FCM server key) — optional
 
-## Scheduler
+If `FCM_SERVER_KEY` is not set, the `send-push` function returns `success=true` with `skipped=true` and no push is sent.
 
-Le mécanisme recommandé est l’Edge Function `cron-close-sessions`.
+## Scheduler (optionnel)
 
-Pour la planification, utiliser **Supabase Cron** (Dashboard → Integrations → Cron) afin d’appeler l’endpoint :
+Le mécanisme recommandé est l'Edge Function `cron-close-sessions`.
 
-`POST https://<project-ref>.supabase.co/functions/v1/cron-close-sessions`
+**Ce cron est optionnel** : le backend fonctionne parfaitement sans, mais les tâches suivantes devront être faites manuellement :
 
-Planification recommandée : `* * * * *` (toutes les minutes).
+- Fermeture des sessions expirées (les professeurs peuvent fermer manuellement via `close-session`)
+- Publication des annonces planifiées (publier manuellement via `publish-seances`)
+- Envoi des rappels d'examen (pas de rappel automatique)
+
+### Configuration (peut être faite plus tard)
+
+Pour activer l'automatisation, créer un job dans **Supabase Cron** (Dashboard → Integrations → Cron) :
+
+- **Method** : `POST`
+- **URL** : `https://<project-ref>.supabase.co/functions/v1/cron-close-sessions`
+- **Schedule** : `* * * * *` (toutes les minutes)
+- **Headers** : `Content-Type: application/json`
+- **Body** : `{}`
 
 Note : on ne configure pas la clé `schedule` dans `supabase/config.toml` (compatibilité Supabase CLI).

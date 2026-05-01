@@ -432,6 +432,8 @@ Enregistrer ou mettre à jour le token FCM de l’utilisateur connecté.
 
 Envoyer une notification push via FCM legacy (appel interne depuis la base).
 
+Note : la configuration FCM est optionnelle. Si `FCM_SERVER_KEY` n’est pas configurée, la fonction ne tente pas d’envoyer de push et répond avec `success=true` et `skipped=true`.
+
 ### Accès
 
 Interne (appelé par `pg_net`).
@@ -439,6 +441,20 @@ Interne (appelé par `pg_net`).
 ### Endpoint
 
 `POST /functions/v1/send-push`
+
+### Réponses
+
+- `200` : envoi tenté (ou ignoré si FCM non configuré)
+
+Réponse JSON (exemples) :
+
+```json
+{ "success": true }
+```
+
+```json
+{ "success": true, "skipped": true, "reason": "FCM non configuré" }
+```
 
 ---
 
