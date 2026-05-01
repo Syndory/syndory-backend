@@ -1,4 +1,4 @@
-# Documentation Edge Functions (Supabase)
+cla# Documentation Edge Functions (Supabase)
 
 Ce document décrit les **Edge Functions** du backend Syndory : objectif, logique, paramètres, réponses et exemples d’appel.
 
