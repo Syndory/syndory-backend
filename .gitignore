@@ -13,3 +13,6 @@ build/
 .supabase/
 supabase/.temp/
 supabase/.temp/**
+
+# Local scripts (not committed)
+scripts/

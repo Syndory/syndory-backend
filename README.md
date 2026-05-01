@@ -16,7 +16,6 @@ Ce dépôt contient le **backend Supabase** du projet **Syndory** :
 
 ```
 docs/
-scripts/
 supabase/
   config.toml
   migrations/
