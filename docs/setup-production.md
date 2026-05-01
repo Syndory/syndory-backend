@@ -30,5 +30,12 @@ Set these secrets in your Supabase project:
 
 ## Scheduler
 
-The cron job is configured in [supabase/config.toml](../supabase/config.toml) under `functions.cron-close-sessions`.
-Ensure the `cron-close-sessions` function is deployed in production so Supabase can execute it every minute.
+Le mécanisme recommandé est l’Edge Function `cron-close-sessions`.
+
+Pour la planification, utiliser **Supabase Cron** (Dashboard → Integrations → Cron) afin d’appeler l’endpoint :
+
+`POST https://<project-ref>.supabase.co/functions/v1/cron-close-sessions`
+
+Planification recommandée : `* * * * *` (toutes les minutes).
+
+Note : on ne configure pas la clé `schedule` dans `supabase/config.toml` (compatibilité Supabase CLI).

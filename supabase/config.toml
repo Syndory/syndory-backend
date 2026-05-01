@@ -166,7 +166,6 @@ verify_jwt = true
 
 [functions.cron-close-sessions]
 verify_jwt = false
-schedule = "* * * * *"
 
 [functions.send-push]
 verify_jwt = false
