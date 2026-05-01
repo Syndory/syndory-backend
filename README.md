@@ -99,5 +99,6 @@ Cette section décrit le minimum à configurer côté clients.
 
 - Le projet utilise **RLS** sur toutes les tables applicatives.
 - Les comptes désactivés (`users.is_active=false`) sont bloqués globalement.
-- Certaines automatisations (rappels examens, fermeture auto…) doivent être planifiées via un scheduler externe (voir `docs/database.md`).
+- Les automatisations (fermeture des sessions expirées, publication d’annonces planifiées, rappels d’examen) sont exécutées via l’Edge Function `cron-close-sessions` planifiée dans `supabase/config.toml`.
+- `pg_cron` n’est pas utilisé/recommandé pour ce projet.
 - Les notifications push utilisent FCM legacy (clé serveur) et un appel `pg_net` vers `send-push` (voir `docs/setup-production.md`).

@@ -218,7 +218,14 @@ Dans `005_automatic_notifications.sql` :
   - publication/modification de séances
   - ajout de ressource
   - changement de statut de justificatif
-- `send_exam_reminders()` : envoie des rappels d’examens (appel à planifier par scheduler externe)
+- `send_exam_reminders()` : envoie des rappels d’examens (appel périodique)
+
+### 6.6b Scheduler (recommandé)
+
+Les tâches périodiques (ex : `close_expired_sessions()`, `publish_scheduled_annonces()`, `send_exam_reminders()`) sont exécutées via l’Edge Function `cron-close-sessions`.
+
+- La planification est déclarée dans `supabase/config.toml` (exécution toutes les minutes).
+- `pg_cron` n’est pas utilisé/recommandé pour ce projet.
 
 ### 6.7 Validation atomique des justificatifs
 
