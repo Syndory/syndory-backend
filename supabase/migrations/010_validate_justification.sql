@@ -15,7 +15,7 @@ BEGIN
     FROM justificatifs
     WHERE id = p_justificatif_id;
 
-    IF v_justificatif IS NULL THEN
+    IF NOT FOUND THEN
         RETURN jsonb_build_object('success', false, 'error', 'Justificatif introuvable');
     END IF;
 
@@ -25,7 +25,7 @@ BEGIN
     JOIN seances sea ON ses.seance_id = sea.id
     WHERE p.id = v_justificatif.presence_id;
 
-    IF v_seance IS NULL OR v_seance.professor_id != p_professor_id THEN
+    IF NOT FOUND OR v_seance.professor_id != p_professor_id THEN
         RETURN jsonb_build_object('success', false, 'error', 'Non autorise');
     END IF;
 
