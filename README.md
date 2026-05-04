@@ -120,6 +120,17 @@ supabase functions deploy send-push
 supabase functions deploy cron-close-sessions
 ```
 
+## Identifiants de test (données de dev)
+
+Ces identifiants sont créés par le script `./scripts/populate-supabase.sh` (source de vérité : `scripts/populate-supabase.sh` et `scripts/README.md`).
+
+| Rôle                                 | Email(s)                                         | Mot de passe  |
+| ------------------------------------ | ------------------------------------------------ | ------------- |
+| Admin                                | `admin@syndory.com`                              | `admin123`    |
+| Professeur                           | `prof1@syndory.com` → `prof5@syndory.com`        | `prof123`     |
+| Responsable (`class_representative`) | `delegate1@syndory.com`, `delegate2@syndory.com` | `delegate123` |
+| Étudiant                             | `student1@syndory.com` → `student10@syndory.com` | `student123`  |
+
 ## Modèle de données (carte mentale)
 
 Les fonctionnalités du CDC/UI-UX se mappent aux blocs suivants :
